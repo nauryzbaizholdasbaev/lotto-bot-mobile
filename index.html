@@ -7,57 +7,54 @@
 <style>
   body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
   textarea, button { padding: 10px; margin: 5px; font-size: 16px; width: 90%; }
+  button { margin-top: 5px; }
   #result { font-weight: bold; font-size: 18px; white-space: pre-line; margin-top: 10px; }
+  #history { font-size: 14px; color: #555; margin-top: 15px; white-space: pre-line; border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
 </style>
 </head>
 <body>
   <h1>📊 Lotto Bot Mobile</h1>
-  <p>Введите последние 3 тиража в формате:<br>
+  <p>Введите тираж в формате:<br>
   A: 2,7<br>B: 5,1<br>C: 8,3</p>
 
   <textarea id="inputData" rows="6" placeholder="A: 2,7\nB: 5,1\nC: 8,3"></textarea><br>
+  <button onclick="addDraw()">Добавить тираж</button>
   <button onclick="predict()">Сделать прогноз</button>
+  <button onclick="clearHistory()" style="background-color: #f66; color: white;">Очистить историю</button>
 
   <h2>Результат:</h2>
   <div id="result">—</div>
 
+  <h3>История тиражей:</h3>
+  <div id="history">—</div>
+
 <script>
-function loadLastData() {
-    let saved = localStorage.getItem("lottoData");
-    if (saved) {
-        document.getElementById('inputData').value = saved;
-    }
+function loadHistory() {
+    let saved = localStorage.getItem("lottoHistory");
+    return saved ? JSON.parse(saved) : [];
 }
 
-function saveData(data) {
-    localStorage.setItem("lottoData", data);
+function saveHistory(history) {
+    localStorage.setItem("lottoHistory", JSON.stringify(history));
 }
 
-function predict() {
+function renderHistory() {
+    let history = loadHistory();
+    document.getElementById('history').innerText = history.length ? history.join("\n\n") : "—";
+}
+
+function addDraw() {
     let data = document.getElementById('inputData').value.trim();
     if (!data) { alert('Введите данные'); return; }
-
-    saveData(data);
-
-    let lines = data.split("\n");
-    let output = "";
-
-    for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
-        if (!line) continue;
-        let parts = line.split(":");
-        if (parts.length < 2) continue;
-
-        let zone = parts[0].trim();
-        let nums = parts[1].split(",").map(n => parseInt(n.trim()));
-        let pred = nums.map(n => (n + 1) % 10);
-        output += `${zone}: ${pred.join(",")}\n`;
-    }
-
-    document.getElementById('result').innerText = output.trim();
+    let history = loadHistory();
+    history.push(data);
+    saveHistory(history);
+    renderHistory();
+    document.getElementById('inputData').value = "";
+    predict(); // 📌 Автопрогноз сразу после добавления
 }
 
-loadLastData();
-</script>
-</body>
-</html>
+function countFrequencies(numbers) {
+    let freq = {};
+    numbers.forEach(n => { freq[n] = (freq[n] || 0) + 1; });
+    let total = numbers.length;
