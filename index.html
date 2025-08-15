@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lotto Bot Mobile</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+  input, button { padding: 10px; margin: 5px; font-size: 16px; }
+</style>
+</head>
+<body>
+  <h1>📊 Lotto Bot Mobile</h1>
+  <p>Введите последние 3 тиража (A,B,C):</p>
+  <textarea id="inputData" rows="6" cols="30" placeholder="A: 2,7\nB: 5,1\nC: 8,3"></textarea><br>
+  <button onclick="predict()">Сделать прогноз</button>
+  <h2>Результат:</h2>
+  <div id="result">—</div>
+
+<script>
+function predict() {
+    let data = document.getElementById('inputData').value.trim();
+    if (!data) { alert('Введите данные'); return; }
+
+    // простая логика — сдвигаем числа +1 по модулю 10
+    let lines = data.split("\n");
+    let res = [];
+    for (let line of lines) {
+        let nums = line.split(":")[1].split(",").map(n => parseInt(n.trim()));
+        let pred = nums.map(n => (n + 1) % 10);
+        res.push(pred.join(","));
+    }
+    document.getElementById('result').innerText = res.join(" | ");
+}
+</script>
+</body>
+</html>
