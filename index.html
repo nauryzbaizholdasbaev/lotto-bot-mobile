@@ -2,117 +2,126 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Лотто Бот</title>
+<title>Lotto Bot</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
+h1 { text-align: center; }
+button { margin: 5px; padding: 10px 15px; font-size: 16px; }
+.results, .stats { margin-top: 15px; padding: 10px; background: white; border-radius: 6px; }
+</style>
 </head>
 <body>
-<h2>Лотто Бот</h2>
+<h1>🎯 Lotto Bot</h1>
 
-<input type="text" id="zoneA" placeholder="A: например 2,7">
-<input type="text" id="zoneB" placeholder="B: например 5,1">
-<input type="text" id="zoneC" placeholder="C: например 8,3">
-<button onclick="addDraw()">Добавить тираж</button>
 <button onclick="makePrediction()">Сделать прогноз</button>
+<button onclick="addDraw()">Добавить тираж</button>
 <button onclick="clearHistory()">Очистить историю</button>
 
-<h3>История:</h3>
-<pre id="history"></pre>
-
-<h3>Прогноз:</h3>
-<pre id="prediction"></pre>
-
-<h3>Статистика:</h3>
-<pre id="stats"></pre>
+<div class="results" id="prediction"></div>
+<div class="stats" id="statistics"></div>
 
 <script>
-let historyData = JSON.parse(localStorage.getItem("historyData") || "[]");
-let prediction = null;
-let totalZones = 0;
-let correctZones = 0;
+let stats = JSON.parse(localStorage.getItem('lottoStats')) || {
+    zones: { A: {hits:0,total:0}, B: {hits:0,total:0}, C: {hits:0,total:0} },
+    overall: {hits:0,total:0},
+    lastPrediction: null
+};
 
-function saveData() {
-    localStorage.setItem("historyData", JSON.stringify(historyData));
-    localStorage.setItem("totalZones", totalZones);
-    localStorage.setItem("correctZones", correctZones);
-}
-
-function loadData() {
-    totalZones = parseInt(localStorage.getItem("totalZones") || "0");
-    correctZones = parseInt(localStorage.getItem("correctZones") || "0");
-    renderHistory();
-    renderStats();
-}
-
-function addDraw() {
-    const A = document.getElementById("zoneA").value.trim();
-    const B = document.getElementById("zoneB").value.trim();
-    const C = document.getElementById("zoneC").value.trim();
-    if (!A || !B || !C) {
-        alert("Заполни все зоны");
-        return;
+function getRandomDigits(count) {
+    let digits = [...Array(10).keys()];
+    let res = [];
+    for (let i=0; i<count; i++) {
+        let idx = Math.floor(Math.random() * digits.length);
+        res.push(digits.splice(idx,1)[0]);
     }
-    const draw = {A, B, C};
-    historyData.push(draw);
-
-    if (prediction) {
-        ["A", "B", "C"].forEach(zone => {
-            totalZones++;
-            const predictedNums = prediction[zone];
-            const actualNums = draw[zone].split(",").map(n => n.trim());
-            if (predictedNums.some(num => actualNums.includes(num))) {
-                correctZones++;
-            }
-        });
-    }
-
-    saveData();
-    renderHistory();
-    renderStats();
-    prediction = null; 
+    return res;
 }
 
 function makePrediction() {
-    if (historyData.length === 0) {
-        alert("Нет данных для прогноза");
+    let prediction = {
+        A: getRandomDigits(3),
+        B: getRandomDigits(3),
+        C: getRandomDigits(3)
+    };
+    stats.lastPrediction = prediction;
+    saveStats();
+    showPrediction();
+}
+
+function addDraw() {
+    if (!stats.lastPrediction) {
+        alert("Сначала сделайте прогноз!");
         return;
     }
-    const zones = ["A", "B", "C"];
-    prediction = {};
-    zones.forEach(zone => {
-        let counts = {};
-        historyData.forEach(draw => {
-            draw[zone].split(",").map(n => n.trim()).forEach(num => {
-                counts[num] = (counts[num] || 0) + 1;
-            });
-        });
-        let sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-        prediction[zone] = sorted.slice(0, 2).map(e => e[0]);
-    });
-    document.getElementById("prediction").textContent = JSON.stringify(prediction, null, 2);
-}
-
-function renderHistory() {
-    document.getElementById("history").textContent = historyData.map((d, i) =>
-        `${i+1}: A:${d.A} B:${d.B} C:${d.C}`).join("\n");
-}
-
-function renderStats() {
-    let percent = totalZones ? ((correctZones / totalZones) * 100).toFixed(1) : 0;
-    document.getElementById("stats").textContent = `Точность прогнозов: ${correctZones} из ${totalZones} зон (${percent}%)`;
+    let draw = {};
+    for (let zone of ["A","B","C"]) {
+        let input = prompt(`Введите 2 числа зоны ${zone} через запятую (например: 3,7):`);
+        if (!input) return;
+        draw[zone] = input.split(",").map(n=>parseInt(n.trim())).filter(n=>!isNaN(n));
+        if (draw[zone].length !== 2) return alert("Нужно ввести ровно 2 числа!");
+    }
+    // Проверка попаданий
+    let allPredicted = [];
+    let allDrawn = [];
+    for (let zone of ["A","B","C"]) {
+        let predicted = stats.lastPrediction[zone];
+        let actual = draw[zone];
+        let hits = predicted.filter(n => actual.includes(n)).length;
+        stats.zones[zone].hits += hits;
+        stats.zones[zone].total += predicted.length;
+        allPredicted.push(...predicted);
+        allDrawn.push(...actual);
+    }
+    let overallHits = allPredicted.filter(n => allDrawn.includes(n)).length;
+    stats.overall.hits += overallHits;
+    stats.overall.total += allPredicted.length;
+    saveStats();
+    showStats();
 }
 
 function clearHistory() {
-    if (confirm("Точно очистить историю?")) {
-        historyData = [];
-        totalZones = 0;
-        correctZones = 0;
-        saveData();
-        renderHistory();
-        renderStats();
-        document.getElementById("prediction").textContent = "";
+    if (confirm("Очистить всю статистику?")) {
+        stats = {
+            zones: { A: {hits:0,total:0}, B: {hits:0,total:0}, C: {hits:0,total:0} },
+            overall: {hits:0,total:0},
+            lastPrediction: null
+        };
+        saveStats();
+        document.getElementById('prediction').innerHTML = "";
+        document.getElementById('statistics').innerHTML = "";
     }
 }
 
-loadData();
+function saveStats() {
+    localStorage.setItem('lottoStats', JSON.stringify(stats));
+}
+
+function showPrediction() {
+    if (!stats.lastPrediction) return;
+    let html = "";
+    for (let zone of ["A","B","C"]) {
+        html += `<p>${zone}: ${stats.lastPrediction[zone].join(", ")}</p>`;
+    }
+    document.getElementById('prediction').innerHTML = `<h3>Прогноз:</h3>${html}`;
+}
+
+function showStats() {
+    let html = "<h3>Статистика:</h3>";
+    for (let zone of ["A","B","C"]) {
+        let z = stats.zones[zone];
+        let pct = z.total ? ((z.hits/z.total)*100).toFixed(1) : 0;
+        html += `<p>${zone}: ${pct}% (${z.hits}/${z.total})</p>`;
+    }
+    let o = stats.overall;
+    let pctO = o.total ? ((o.hits/o.total)*100).toFixed(1) : 0;
+    html += `<p><b>Общий:</b> ${pctO}% (${o.hits}/${o.total})</p>`;
+    document.getElementById('statistics').innerHTML = html;
+}
+
+// Показ при загрузке
+showPrediction();
+showStats();
 </script>
+
 </body>
 </html>
