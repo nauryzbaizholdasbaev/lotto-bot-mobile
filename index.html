@@ -2,47 +2,117 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Лотто Бот</title>
-<style>
-body { font-family: Arial, sans-serif; padding: 20px; background: #f4f4f4; }
-h1 { text-align: center; }
-input { width: 60px; margin: 5px; padding: 5px; }
-button { padding: 10px; margin: 5px; }
-.result { background: #fff; padding: 10px; margin-top: 10px; border-radius: 5px; }
-</style>
 </head>
 <body>
+<h2>Лотто Бот</h2>
 
-<h1>Лотто Бот</h1>
+<input type="text" id="zoneA" placeholder="A: например 2,7">
+<input type="text" id="zoneB" placeholder="B: например 5,1">
+<input type="text" id="zoneC" placeholder="C: например 8,3">
+<button onclick="addDraw()">Добавить тираж</button>
+<button onclick="makePrediction()">Сделать прогноз</button>
+<button onclick="clearHistory()">Очистить историю</button>
 
-<div>
-    <h3>Добавить тираж</h3>
-    A: <input type="number" id="a1"> <input type="number" id="a2"><br>
-    B: <input type="number" id="b1"> <input type="number" id="b2"><br>
-    C: <input type="number" id="c1"> <input type="number" id="c2"><br>
-    <button onclick="addDraw()">Добавить тираж</button>
-    <button onclick="makePrediction()">Сделать прогноз</button>
-    <button onclick="clearHistory()">Очистить историю</button>
-</div>
+<h3>История:</h3>
+<pre id="history"></pre>
 
-<div id="output" class="result"></div>
+<h3>Прогноз:</h3>
+<pre id="prediction"></pre>
+
+<h3>Статистика:</h3>
+<pre id="stats"></pre>
 
 <script>
-let draws = JSON.parse(localStorage.getItem('draws') || '[]');
-let lastPrediction = JSON.parse(localStorage.getItem('lastPrediction') || 'null');
-let correctZones = parseInt(localStorage.getItem('correctZones') || '0');
-let totalZones = parseInt(localStorage.getItem('totalZones') || '0');
+let historyData = JSON.parse(localStorage.getItem("historyData") || "[]");
+let prediction = null;
+let totalZones = 0;
+let correctZones = 0;
+
+function saveData() {
+    localStorage.setItem("historyData", JSON.stringify(historyData));
+    localStorage.setItem("totalZones", totalZones);
+    localStorage.setItem("correctZones", correctZones);
+}
+
+function loadData() {
+    totalZones = parseInt(localStorage.getItem("totalZones") || "0");
+    correctZones = parseInt(localStorage.getItem("correctZones") || "0");
+    renderHistory();
+    renderStats();
+}
 
 function addDraw() {
-    let draw = {
-        A: [parseInt(document.getElementById('a1').value), parseInt(document.getElementById('a2').value)],
-        B: [parseInt(document.getElementById('b1').value), parseInt(document.getElementById('b2').value)],
-        C: [parseInt(document.getElementById('c1').value), parseInt(document.getElementById('c2').value)]
-    };
-    draws.push(draw);
-    localStorage.setItem('draws', JSON.stringify(draws));
+    const A = document.getElementById("zoneA").value.trim();
+    const B = document.getElementById("zoneB").value.trim();
+    const C = document.getElementById("zoneC").value.trim();
+    if (!A || !B || !C) {
+        alert("Заполни все зоны");
+        return;
+    }
+    const draw = {A, B, C};
+    historyData.push(draw);
 
-    // Проверка точности на основе прошлого прогноза
-    if (lastPrediction) {
-        let matchedZones = 0;
+    if (prediction) {
+        ["A", "B", "C"].forEach(zone => {
+            totalZones++;
+            const predictedNums = prediction[zone];
+            const actualNums = draw[zone].split(",").map(n => n.trim());
+            if (predictedNums.some(num => actualNums.includes(num))) {
+                correctZones++;
+            }
+        });
+    }
+
+    saveData();
+    renderHistory();
+    renderStats();
+    prediction = null; 
+}
+
+function makePrediction() {
+    if (historyData.length === 0) {
+        alert("Нет данных для прогноза");
+        return;
+    }
+    const zones = ["A", "B", "C"];
+    prediction = {};
+    zones.forEach(zone => {
+        let counts = {};
+        historyData.forEach(draw => {
+            draw[zone].split(",").map(n => n.trim()).forEach(num => {
+                counts[num] = (counts[num] || 0) + 1;
+            });
+        });
+        let sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        prediction[zone] = sorted.slice(0, 2).map(e => e[0]);
+    });
+    document.getElementById("prediction").textContent = JSON.stringify(prediction, null, 2);
+}
+
+function renderHistory() {
+    document.getElementById("history").textContent = historyData.map((d, i) =>
+        `${i+1}: A:${d.A} B:${d.B} C:${d.C}`).join("\n");
+}
+
+function renderStats() {
+    let percent = totalZones ? ((correctZones / totalZones) * 100).toFixed(1) : 0;
+    document.getElementById("stats").textContent = `Точность прогнозов: ${correctZones} из ${totalZones} зон (${percent}%)`;
+}
+
+function clearHistory() {
+    if (confirm("Точно очистить историю?")) {
+        historyData = [];
+        totalZones = 0;
+        correctZones = 0;
+        saveData();
+        renderHistory();
+        renderStats();
+        document.getElementById("prediction").textContent = "";
+    }
+}
+
+loadData();
+</script>
+</body>
+</html>
