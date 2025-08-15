@@ -3,58 +3,96 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lotto Bot Mobile</title>
+<title>Лотто Бот</title>
 <style>
-  body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-  textarea, button { padding: 10px; margin: 5px; font-size: 16px; width: 90%; }
-  button { margin-top: 5px; }
-  #result { font-weight: bold; font-size: 18px; white-space: pre-line; margin-top: 10px; }
-  #history { font-size: 14px; color: #555; margin-top: 15px; white-space: pre-line; border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+  h1 { text-align: center; }
+  textarea, button { width: 100%; padding: 10px; margin: 5px 0; font-size: 16px; }
+  button { cursor: pointer; background: #4CAF50; color: white; border: none; }
+  button:hover { background: #45a049; }
+  .result, .history { background: white; padding: 10px; margin-top: 10px; border-radius: 5px; }
 </style>
 </head>
 <body>
-  <h1>📊 Lotto Bot Mobile</h1>
-  <p>Введите тираж в формате:<br>
-  A: 2,7<br>B: 5,1<br>C: 8,3</p>
 
-  <textarea id="inputData" rows="6" placeholder="A: 2,7\nB: 5,1\nC: 8,3"></textarea><br>
-  <button onclick="addDraw()">Добавить тираж</button>
-  <button onclick="predict()">Сделать прогноз</button>
-  <button onclick="clearHistory()" style="background-color: #f66; color: white;">Очистить историю</button>
+<h1>Лотто Бот</h1>
+<textarea id="input" placeholder="A: 2,7&#10;B: 5,1&#10;C: 8,3"></textarea>
+<button onclick="addDraw()">Добавить тираж</button>
+<button onclick="makePrediction()">Сделать прогноз</button>
+<button onclick="clearHistory()">Очистить историю</button>
 
-  <h2>Результат:</h2>
-  <div id="result">—</div>
-
-  <h3>История тиражей:</h3>
-  <div id="history">—</div>
+<div class="result" id="result">Результат: —</div>
+<div class="history" id="history">История тиражей: —</div>
 
 <script>
-function loadHistory() {
-    let saved = localStorage.getItem("lottoHistory");
-    return saved ? JSON.parse(saved) : [];
-}
-
-function saveHistory(history) {
-    localStorage.setItem("lottoHistory", JSON.stringify(history));
-}
-
-function renderHistory() {
-    let history = loadHistory();
-    document.getElementById('history').innerText = history.length ? history.join("\n\n") : "—";
-}
+let draws = JSON.parse(localStorage.getItem('lottoDraws') || '[]');
+updateHistory();
 
 function addDraw() {
-    let data = document.getElementById('inputData').value.trim();
-    if (!data) { alert('Введите данные'); return; }
-    let history = loadHistory();
-    history.push(data);
-    saveHistory(history);
-    renderHistory();
-    document.getElementById('inputData').value = "";
-    predict(); // 📌 Автопрогноз сразу после добавления
+    const text = document.getElementById('input').value.trim();
+    const match = text.match(/A:\s*(\d+),(\d+)\s*B:\s*(\d+),(\d+)\s*C:\s*(\d+),(\d+)/i);
+    if (!match) {
+        alert("Введите тираж в формате:\nA: 2,7\nB: 5,1\nC: 8,3");
+        return;
+    }
+    const draw = {
+        A: [parseInt(match[1]), parseInt(match[2])],
+        B: [parseInt(match[3]), parseInt(match[4])],
+        C: [parseInt(match[5]), parseInt(match[6])]
+    };
+    draws.push(draw);
+    localStorage.setItem('lottoDraws', JSON.stringify(draws));
+    document.getElementById('input').value = '';
+    updateHistory();
+    makePrediction();
 }
 
-function countFrequencies(numbers) {
-    let freq = {};
-    numbers.forEach(n => { freq[n] = (freq[n] || 0) + 1; });
-    let total = numbers.length;
+function makePrediction() {
+    if (draws.length === 0) {
+        document.getElementById('result').innerText = "Результат: Нет данных";
+        return;
+    }
+    const zones = { A: {}, B: {}, C: {} };
+    draws.forEach(draw => {
+        for (let zone of ['A', 'B', 'C']) {
+            draw[zone].forEach(num => {
+                zones[zone][num] = (zones[zone][num] || 0) + 1;
+            });
+        }
+    });
+    let output = "Результат:\n";
+    for (let zone of ['A', 'B', 'C']) {
+        const sorted = Object.entries(zones[zone])
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 2);
+        const total = draws.length * 2;
+        const line = sorted.map(([num, count]) => `${num} (${Math.round(count / total * 100)}%)`).join(", ");
+        output += `${zone}: ${line}\n`;
+    }
+    document.getElementById('result').innerText = output;
+}
+
+function clearHistory() {
+    if (confirm("Очистить историю?")) {
+        draws = [];
+        localStorage.removeItem('lottoDraws');
+        updateHistory();
+        document.getElementById('result').innerText = "Результат: —";
+    }
+}
+
+function updateHistory() {
+    if (draws.length === 0) {
+        document.getElementById('history').innerText = "История тиражей: —";
+        return;
+    }
+    let text = "История тиражей:\n";
+    draws.forEach((draw, i) => {
+        text += `${i+1}: A: ${draw.A.join(',')}  B: ${draw.B.join(',')}  C: ${draw.C.join(',')}\n`;
+    });
+    document.getElementById('history').innerText = text;
+}
+</script>
+
+</body>
+</html>
