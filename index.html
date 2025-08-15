@@ -6,32 +6,58 @@
 <title>Lotto Bot Mobile</title>
 <style>
   body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
-  input, button { padding: 10px; margin: 5px; font-size: 16px; }
+  textarea, button { padding: 10px; margin: 5px; font-size: 16px; width: 90%; }
+  #result { font-weight: bold; font-size: 18px; white-space: pre-line; margin-top: 10px; }
 </style>
 </head>
 <body>
   <h1>📊 Lotto Bot Mobile</h1>
-  <p>Введите последние 3 тиража (A,B,C):</p>
-  <textarea id="inputData" rows="6" cols="30" placeholder="A: 2,7\nB: 5,1\nC: 8,3"></textarea><br>
+  <p>Введите последние 3 тиража в формате:<br>
+  A: 2,7<br>B: 5,1<br>C: 8,3</p>
+
+  <textarea id="inputData" rows="6" placeholder="A: 2,7\nB: 5,1\nC: 8,3"></textarea><br>
   <button onclick="predict()">Сделать прогноз</button>
+
   <h2>Результат:</h2>
   <div id="result">—</div>
 
 <script>
+function loadLastData() {
+    let saved = localStorage.getItem("lottoData");
+    if (saved) {
+        document.getElementById('inputData').value = saved;
+    }
+}
+
+function saveData(data) {
+    localStorage.setItem("lottoData", data);
+}
+
 function predict() {
     let data = document.getElementById('inputData').value.trim();
     if (!data) { alert('Введите данные'); return; }
 
-    // простая логика — сдвигаем числа +1 по модулю 10
+    saveData(data);
+
     let lines = data.split("\n");
-    let res = [];
-    for (let line of lines) {
-        let nums = line.split(":")[1].split(",").map(n => parseInt(n.trim()));
+    let output = "";
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line) continue;
+        let parts = line.split(":");
+        if (parts.length < 2) continue;
+
+        let zone = parts[0].trim();
+        let nums = parts[1].split(",").map(n => parseInt(n.trim()));
         let pred = nums.map(n => (n + 1) % 10);
-        res.push(pred.join(","));
+        output += `${zone}: ${pred.join(",")}\n`;
     }
-    document.getElementById('result').innerText = res.join(" | ");
+
+    document.getElementById('result').innerText = output.trim();
 }
+
+loadLastData();
 </script>
 </body>
 </html>
